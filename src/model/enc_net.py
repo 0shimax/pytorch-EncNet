@@ -90,7 +90,7 @@ class ELayer(nn.Module):
     def __init__(self, fc_input, pool_kernel, n_classes):
         super().__init__()
         self.avgpool = nn.AvgPool2d(pool_kernel, stride=1)
-        self.fc = nn.Linear(fc_input, num_classes)
+        self.fc = nn.Linear(fc_input, n_classes)
 
     def forward(self, x):
         x = self.avgpool(x)
@@ -127,12 +127,13 @@ class Encoder(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
-    def _make_layer(self, block, planes, blocks, stride=1):
+    def _make_layer(self, block, planes, blocks, stride=1, dilation=1):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
                 nn.Conv2d(self.inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=False),
+                          kernel_size=1, stride=stride, bias=False,
+                          dilation=dilation),
                 nn.BatchNorm2d(planes * block.expansion),
             )
 
@@ -174,15 +175,19 @@ class Decoder(nn.Module):
         self.cnv2 = nn.ConvTranspose2d(num_classes, num_classes, 3, 2)
         self.cnv3 = nn.ConvTranspose2d(num_classes, num_classes, 3, 2)
 
+        # self.ps1 = nn.PixelShuffle(2)
+        # self.ps2 = nn.PixelShuffle(2)
+        # self.ps3 = nn.PixelShuffle(2)
+
         self.bn1 = nn.BatchNorm2d(num_classes)
         self.bn2 = nn.BatchNorm2d(num_classes)
 
     def forward(self, input):
-        h = self.cnv1(input)
-        h = F.elu(self.bn1(h))
+        h = F.selu(self.cnv1(input))
+        # h = F.selu(self.bn1(h))
 
-        h = self.cnv2(h)
-        h = F.elu(self.bn2(h))
+        h = F.selu(self.cnv2(h))
+        # h = F.selu(self.bn2(h))
 
         h = self.cnv3(h)
         return h

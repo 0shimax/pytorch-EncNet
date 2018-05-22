@@ -1,35 +1,46 @@
 import argparse
 from pathlib import Path
+import numpy as np
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
-from model.resnet18 import resnet18
+# from model.resnet18 import resnet18
+from model.enc_net import enc_net
 from model.utils import calculate_l1_loss
-from data.data_loader import set_data_loader
+from data.data_loader import CamVidDataset, loader
+
 
 torch.manual_seed(555)
 
 
 def main(args):
-    model = resnet18()
-    critic = torch.nn.NLLLoss2D()
+    model = enc_net(32)
 
     # setup optimizer
     optimizer = optim.Adam(
         model.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
     # optimizer = optim.RMSprop(model.parameters(), lr=0.001)
 
-    train_data_loader = set_data_loader(args, train=True)
-    test_data_loader = set_data_loader(args, train=False)
+    train_image_names =\
+        [line.rstrip() for line in open(args.train_image_pointer_path)]
+    test_image_names =\
+        [line.rstrip() for line in open(args.test_image_pointer_path)]
+
+    train_dataset = CamVidDataset(train_image_names, args.root_dir)
+    test_dataset = CamVidDataset(test_image_names, args.root_dir)
+    train_loader = loader(train_dataset, args.batch_size)
+    test_loader = loader(test_dataset, args.batch_size, shuffle=False)
+
+    train(args, model, optimizer, train_loader)
+    test(args, model, test_loader)
 
 
 def train(args, model, optimizer, data_loader):
     model.train()
     for epoch in range(args.epochs):
-        for i, data in enumerate(data_loader, 0):
+        for i, (data, target) in enumerate(data_loader):
             model.zero_grad()
-            data, target = data['sample'], data['target']
 
             optimizer.zero_grad()
             output = model(data)
@@ -52,8 +63,7 @@ def test(args, model, data_loader):
     test_loss = 0
     correct = 0
     with torch.no_grad():
-        for data in data_loader:
-            data, target = data['sample'], data['target']
+        for data, target in data_loader:
             output = model(data)
             # sum up batch loss
             test_loss += F.nll_loss2D(
@@ -70,10 +80,12 @@ def test(args, model, data_loader):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataroot', default='./data', help='path to dataset')
+    parser.add_argument('--root_dir', default='./data/CamSeq01', help='path to dataset')
+    parser.add_argument('--train-image-pointer-path', default='./data/train_image_pointer', help='path to train image pointer')
+    parser.add_argument('--test-image-pointer-path', default='./data/test_image_pointer', help='path to test image pointer')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
-    parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
-    parser.add_argument('--imageSize', type=int, default=64, help='the height / width of the input image to network')
+    parser.add_argument('--batch-size', type=int, default=4, help='input batch size')
+    parser.add_argument('--image-size', type=int, default=256, help='the height / width of the input image to network')
     parser.add_argument('--epochs', type=int, default=200, help='number of epochs to train for')
     parser.add_argument('--lr', type=float, default=0.0002, help='learning rate, default=0.0002')
     parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
