@@ -11,6 +11,7 @@ from torch.utils.data import Dataset
 class CamVidDataset(Dataset):
     def __init__(self, image_file_names, root_dir,
                  subset=False, transform=None):
+        super().__init__()
         self.image_file_names = image_file_names
         self.root_dir = root_dir
         self.transform = transform
@@ -28,12 +29,11 @@ class CamVidDataset(Dataset):
         image = image.transpose(2, 0, 1)
         label = np.load(label_path)['data']
 
-        if self.transform:
-            image = self.transform(image)
-        return image, label
+        image = image[:, ::4, ::4]
+        return torch.FloatTensor(image), torch.LongTensor(label[::4, ::4])
 
 
-def loader(dataset, batch_size, shuffle=True):
+def loader(dataset, batch_size,  shuffle=True):
     loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,

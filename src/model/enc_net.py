@@ -89,13 +89,13 @@ class Bottleneck(nn.Module):
 class ELayer(nn.Module):
     def __init__(self, fc_input, pool_kernel, n_classes):
         super().__init__()
-        self.avgpool = nn.AvgPool2d(pool_kernel, stride=1)
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Linear(fc_input, n_classes)
 
     def forward(self, x):
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
-        return nn.sigmoid(self.fc(x))
+        return F.sigmoid(self.fc(x))
 
 
 class Encoder(nn.Module):
@@ -113,9 +113,9 @@ class Encoder(nn.Module):
         self.layer4 = self._make_layer(
             block, num_classes, layers[3], dilation=4)
 
-        self.es1 = ELayer(256, 14, num_classes)
+        self.es1 = ELayer(256, 7, num_classes)
 
-        self.avgpool = nn.AvgPool2d(7, stride=1)
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.fc1 = nn.Linear(num_classes * block.expansion, 256)
         self.fc_out = nn.Linear(256, num_classes)
 
@@ -157,13 +157,14 @@ class Encoder(nn.Module):
         self.se2 = self.es1(x)
 
         x = self.layer4(x)
+        self.feature_map = x
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         x = self.fc1(x)
 
         x = self.fc_out(x)
-        self.se1 = nn.sigmoid(x)
+        self.se1 = F.sigmoid(x)
 
         return x
 
@@ -183,6 +184,7 @@ class Decoder(nn.Module):
         self.bn2 = nn.BatchNorm2d(num_classes)
 
     def forward(self, input):
+        print(input.shape)
         h = F.selu(self.cnv1(input))
         # h = F.selu(self.bn1(h))
 
@@ -201,8 +203,11 @@ class Net(nn.Module):
 
     def forward(self, input):
         h = self.encoder(input)
-        out = self.decoder(h)
-
+        decoder_in =\
+            self.encoder.feature_map\
+            * h.repeat(self.encoder.feature_map.shape[2:])\
+               .reshape(self.encoder.feature_map.shape)
+        out = self.decoder(decoder_in)
         return out, self.encoder.se2, self.encoder.se1
 
 

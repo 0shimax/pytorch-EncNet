@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
+import torchvision.transforms as transforms
 
 # from model.resnet18 import resnet18
 from model.enc_net import enc_net
@@ -27,6 +28,8 @@ def main(args):
     test_image_names =\
         [line.rstrip() for line in open(args.test_image_pointer_path)]
 
+    resize_shape=(240, 180)
+
     train_dataset = CamVidDataset(train_image_names, args.root_dir)
     test_dataset = CamVidDataset(test_image_names, args.root_dir)
     train_loader = loader(train_dataset, args.batch_size)
@@ -43,8 +46,9 @@ def train(args, model, optimizer, data_loader):
             model.zero_grad()
 
             optimizer.zero_grad()
-            output = model(data)
-            loss = F.nll_loss2D(output, target)
+            output, se2, se1 = model(data)
+            loss = F.nll_loss(F.log_softmax(output), target)
+            print("loss:", loss)
             loss += calculate_l1_loss(output, target)
 
             loss.backward()
