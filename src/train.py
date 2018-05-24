@@ -35,7 +35,7 @@ def main(args):
     train_loader = loader(train_dataset, args.batch_size)
     test_loader = loader(test_dataset, args.batch_size, shuffle=False)
 
-    train(args, model, optimizer, train_loader)
+    # train(args, model, optimizer, train_loader)
     test(args, model, test_loader)
 
 
@@ -48,15 +48,15 @@ def train(args, model, optimizer, data_loader):
             optimizer.zero_grad()
             output, se2, se1 = model(data)
             n_batch = output.shape[0]
-            loss = F.nll_loss(F.log_softmax(output), target)
-            loss += calculate_l1_loss(output, target)
+            loss = torch.mean(F.nll_loss(F.log_softmax(output), target))
+            loss += torch.mean(calculate_l1_loss(output, target))
 
             exist_class = [[1 if c in target[i_batch].numpy() else 0 for c in range(32)]
                             for i_batch in range(n_batch)]
             exist_class = torch.FloatTensor(exist_class)
 
-            loss += F.mse_loss(se2, exist_class)
-            loss += F.mse_loss(se1, exist_class)
+            loss += torch.mean(F.mse_loss(se2, exist_class))
+            loss += torch.mean(F.mse_loss(se1, exist_class))
 
             loss.backward()
             optimizer.step()
@@ -75,12 +75,12 @@ def test(args, model, data_loader):
     correct = 0
     with torch.no_grad():
         for data, target in data_loader:
-            output = model(data)
+            output, se2, se1 = model(data)
             # sum up batch loss
-            test_loss += F.nll_loss2D(
-                output, target, size_average=False).item()
+            test_loss += torch.mean(F.nll_loss(
+                output, target, size_average=False)).item()
             # get the index of the max log-probability
-            pred = output.max(1, keepdim=True)
+            pred = output.argmax(1)
             correct += pred.eq(target.view_as(pred)).sum().item()
 
     test_loss /= len(data_loader.dataset)
