@@ -146,9 +146,7 @@ class Encoder(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
+        x = self.relu(self.bn1(self.conv1(x)))
         x = self.maxpool(x)
 
         x = self.layer1(x)
@@ -172,26 +170,33 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
-        self.cnv1 = nn.ConvTranspose2d(num_classes, num_classes, 3, 2)
-        self.cnv2 = nn.ConvTranspose2d(num_classes, num_classes, 3, 2)
-        self.cnv3 = nn.ConvTranspose2d(num_classes, num_classes, 3, 2)
+        # self.cnv1 = nn.ConvTranspose2d(num_classes, num_classes, 3, 2, padding=1)
+        # self.cnv2 = nn.ConvTranspose2d(num_classes, num_classes, 3, 2, padding=1)
+        # self.cnv3 = nn.ConvTranspose2d(num_classes, num_classes, 3, 2)
 
-        # self.ps1 = nn.PixelShuffle(2)
-        # self.ps2 = nn.PixelShuffle(2)
-        # self.ps3 = nn.PixelShuffle(2)
+        self.conv1 = nn.Conv2d(
+            num_classes, num_classes*4, kernel_size=3, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(
+            num_classes, num_classes*4, kernel_size=3, padding=1, bias=False)
+        self.conv3 = nn.Conv2d(
+            num_classes, num_classes*4, kernel_size=3, padding=(0, 1), bias=False)
+
+        self.ps1 = nn.PixelShuffle(2)
+        self.ps2 = nn.PixelShuffle(2)
+        self.ps3 = nn.PixelShuffle(2)
 
         self.bn1 = nn.BatchNorm2d(num_classes)
         self.bn2 = nn.BatchNorm2d(num_classes)
 
     def forward(self, input):
-        print(input.shape)
-        h = F.selu(self.cnv1(input))
-        # h = F.selu(self.bn1(h))
+        h = self.ps1(F.selu(self.conv1(input)))
+        # h = F.selu(self.cnv1(input))
 
-        h = F.selu(self.cnv2(h))
-        # h = F.selu(self.bn2(h))
+        h = self.ps2(F.selu(self.conv2(h)))
+        # h = F.selu(self.cnv2(h))
 
-        h = self.cnv3(h)
+        h = self.ps3(self.conv3(h))
+        # h = self.cnv3(h)
         return h
 
 

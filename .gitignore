@@ -106,3 +106,4 @@ venv.bak/
 # own
 *.tags
 /data
+/results

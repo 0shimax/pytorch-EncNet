@@ -47,14 +47,21 @@ def train(args, model, optimizer, data_loader):
 
             optimizer.zero_grad()
             output, se2, se1 = model(data)
+            n_batch = output.shape[0]
             loss = F.nll_loss(F.log_softmax(output), target)
-            print("loss:", loss)
             loss += calculate_l1_loss(output, target)
+
+            exist_class = [[1 if c in target[i_batch].numpy() else 0 for c in range(32)]
+                            for i_batch in range(n_batch)]
+            exist_class = torch.FloatTensor(exist_class)
+
+            loss += F.mse_loss(se2, exist_class)
+            loss += F.mse_loss(se1, exist_class)
 
             loss.backward()
             optimizer.step()
             print('[{}/{}][{}/{}] Loss: {:.4f}'.format(
-                  epoch, args.epoch, i,
+                  epoch, args.epochs, i,
                   len(data_loader), loss.item()))
 
         # do checkpointing
@@ -93,7 +100,8 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=200, help='number of epochs to train for')
     parser.add_argument('--lr', type=float, default=0.0002, help='learning rate, default=0.0002')
     parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
-    parser.add_argument('--outf', default='./results', help='folder to output images and model checkpoints')
+    parser.add_argument('--out-dir', default='./results', help='folder to output images and model checkpoints')
     args = parser.parse_args()
+    Path(args.out_dir).mkdir(parents=True, exist_ok=True),
 
     main(args)
