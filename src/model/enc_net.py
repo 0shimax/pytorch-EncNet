@@ -22,7 +22,7 @@ class BasicBlock(nn.Module):
         super(BasicBlock, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
-        self.relu = nn.ReLU(inplace=True)
+        self.selu = nn.SELU(inplace=True)
         self.conv2 = conv3x3(planes, planes)
         self.bn2 = nn.BatchNorm2d(planes)
         self.downsample = downsample
@@ -32,17 +32,17 @@ class BasicBlock(nn.Module):
         residual = x
 
         out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
+        # out = self.bn1(out)
+        out = self.selu(out)
 
         out = self.conv2(out)
-        out = self.bn2(out)
+        # out = self.bn2(out)
 
         if self.downsample is not None:
             residual = self.downsample(x)
 
         out += residual
-        out = self.relu(out)
+        out = self.selu(out)
 
         return out
 
@@ -59,7 +59,7 @@ class Bottleneck(nn.Module):
         self.bn2 = nn.BatchNorm2d(planes)
         self.conv3 = nn.Conv2d(planes, planes * self.expansion, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(planes * self.expansion)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.SELU(inplace=True)
         self.downsample = downsample
         self.stride = stride
 
@@ -67,21 +67,21 @@ class Bottleneck(nn.Module):
         residual = x
 
         out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
+        # out = self.bn1(out)
+        out = self.selu(out)
 
         out = self.conv2(out)
-        out = self.bn2(out)
-        out = self.relu(out)
+        # out = self.bn2(out)
+        out = self.selu(out)
 
         out = self.conv3(out)
-        out = self.bn3(out)
+        # out = self.bn3(out)
 
         if self.downsample is not None:
             residual = self.downsample(x)
 
         out += residual
-        out = self.relu(out)
+        out = self.selu(out)
 
         return out
 
@@ -105,7 +105,7 @@ class Encoder(nn.Module):
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
         self.bn1 = nn.BatchNorm2d(64)
-        self.relu = nn.ReLU(inplace=True)
+        self.selu = nn.SELU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
@@ -134,7 +134,7 @@ class Encoder(nn.Module):
                 nn.Conv2d(self.inplanes, planes * block.expansion,
                           kernel_size=1, stride=stride, bias=False,
                           dilation=dilation),
-                nn.BatchNorm2d(planes * block.expansion),
+                # nn.BatchNorm2d(planes * block.expansion),
             )
 
         layers = []
@@ -146,7 +146,7 @@ class Encoder(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self.relu(self.bn1(self.conv1(x)))
+        x = self.selu(self.bn1(self.conv1(x)))
         x = self.maxpool(x)
 
         x = self.layer1(x)
@@ -174,12 +174,18 @@ class Decoder(nn.Module):
         # self.cnv2 = nn.ConvTranspose2d(num_classes, num_classes, 3, 2, padding=1)
         # self.cnv3 = nn.ConvTranspose2d(num_classes, num_classes, 3, 2)
 
-        self.conv1 = nn.Conv2d(
-            num_classes, num_classes*4, kernel_size=3, padding=1, bias=False)
-        self.conv2 = nn.Conv2d(
-            num_classes, num_classes*4, kernel_size=3, padding=1, bias=False)
-        self.conv3 = nn.Conv2d(
-            num_classes, num_classes*4, kernel_size=3, padding=(0, 1), bias=False)
+        self.conv1_1 = nn.Conv2d(
+            num_classes, num_classes*2, kernel_size=5, padding=2)
+        self.conv1_2 = nn.Conv2d(
+            num_classes*2, num_classes*4, kernel_size=5, padding=2)
+        self.conv2_1 = nn.Conv2d(
+            num_classes, num_classes*2, kernel_size=5, padding=2)
+        self.conv2_2 = nn.Conv2d(
+            num_classes*2, num_classes*4, kernel_size=5, padding=2)
+        self.conv3_1 = nn.Conv2d(
+            num_classes, num_classes*2, kernel_size=5, padding=2)
+        self.conv3_2 = nn.Conv2d(
+            num_classes*2, num_classes*4, kernel_size=5, padding=(1, 2))
 
         self.ps1 = nn.PixelShuffle(2)
         self.ps2 = nn.PixelShuffle(2)
@@ -189,14 +195,16 @@ class Decoder(nn.Module):
         self.bn2 = nn.BatchNorm2d(num_classes)
 
     def forward(self, input):
-        h = self.ps1(F.selu(self.conv1(input)))
+        h = F.selu(self.conv1_1(input))
+        h = self.ps1(F.selu(self.conv1_2(h)))
         # h = F.selu(self.cnv1(input))
 
-        h = self.ps2(F.selu(self.conv2(h)))
+        h = F.selu(self.conv2_1(h))
+        h = self.ps2(F.selu(self.conv2_2(h)))
         # h = F.selu(self.cnv2(h))
 
-        h = self.ps3(self.conv3(h))
-        # h = self.cnv3(h)
+        h = F.selu(self.conv3_1(h))
+        h = self.ps3(self.conv3_2(h))
         return h
 
 
