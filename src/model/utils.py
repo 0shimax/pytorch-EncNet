@@ -12,7 +12,7 @@ def calculate_l1_loss(output, target, lagrange_coef=0.0005):
 def smooth_in(model):
     l_noise = []
     for i, p in enumerate(model.parameters()):
-        noise = torch.FloatTensor(p.shape).uniform_(-1, 1)
+        noise = torch.FloatTensor(p.shape).uniform_(-.01, .01)
         p.data -= noise
         l_noise.append(noise)
         # model.parameters()[i] = p

@@ -32,7 +32,8 @@ def main(args):
     # setup optimizer
     optimizer = optim.Adam(
         model.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
-    # optimizer = optim.RMSprop(model.parameters(), lr=0.001)
+    # optimizer = optim.RMSprop(model.parameters(), lr=0.0001)
+    # optimizer = optim.SGD(model.parameters(), lr=.01, momentum=.9, weight_decay=.01)
 
     train_image_names =\
         [line.rstrip() for line in open(args.train_image_pointer_path)]
@@ -46,7 +47,7 @@ def main(args):
     train_loader = loader(train_dataset, args.batch_size)
     test_loader = loader(test_dataset, 1, shuffle=False)
 
-    # train(args, model, optimizer, train_loader)
+    train(args, model, optimizer, train_loader)
     test(args, model, test_loader)
 
 
@@ -69,9 +70,11 @@ def train(args, model, optimizer, data_loader):
             loss += F.mse_loss(se2, exist_class)
             loss += F.mse_loss(se1, exist_class)
 
-            # l_noise = smooth_in(model)
+            # with torch.no_grad():
+            #     l_noise = smooth_in(model)
             loss.backward()
-            # smooth_out(model, l_noise)
+            # with torch.no_grad():
+            #     smooth_out(model, l_noise)
 
             optimizer.step()
             print('[{}/{}][{}/{}] Loss: {:.4f}'.format(
@@ -131,7 +134,7 @@ if __name__ == '__main__':
     parser.add_argument('--n-class', type=int, default=32, help='number of class')
     parser.add_argument('--train-image-pointer-path', default='./data/train_image_pointer', help='path to train image pointer')
     parser.add_argument('--test-image-pointer-path', default='./data/test_image_pointer', help='path to test image pointer')
-    parser.add_argument('--resume-model', default='./results/encnet_ckpt.pth', help='path to trained model')
+    parser.add_argument('--resume-model', default='./results/_encnet_ckpt.pth', help='path to trained model')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
     parser.add_argument('--batch-size', type=int, default=16, help='input batch size')
     parser.add_argument('--image-size', type=int, default=256, help='the height / width of the input image to network')
